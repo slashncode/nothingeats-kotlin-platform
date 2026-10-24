@@ -17,6 +17,8 @@ postgresql = "42.7.14"
 flyway = "13.11.1"
 kafka = "4.4.0"
 posthog-server = "2.22.0"
+bouncycastle = "1.86"
+java-jwt = "4.6.0"
 slf4j = "2.0.17"
 logback = "1.6.5"
 logstash-encoder = "9.0"
@@ -78,6 +80,10 @@ flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", versio
 
 # Messaging
 kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
+
+# Security
+bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+java-jwt = { module = "com.auth0:java-jwt", version.ref = "java-jwt" }
 
 # Product analytics
 posthog-server = { module = "com.posthog:posthog-server", version.ref = "posthog-server" }

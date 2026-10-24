@@ -19,9 +19,12 @@ object KafkaTestCluster {
 
     fun topic(prefix: String = "test"): String = "$prefix-${UUID.randomUUID()}".also { createTopics(it) }
 
+    /** Creates the topics; existing ones are left alone, so fixed topic names can be created by every test. */
     fun createTopics(vararg names: String) {
         AdminClient.create(mapOf(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG to bootstrapServers)).use { admin ->
-            admin.createTopics(names.map { NewTopic(it, 1, 1.toShort()) }).all().get()
+            val existing = admin.listTopics().names().get()
+            val missing = names.filterNot { it in existing }
+            if (missing.isNotEmpty()) admin.createTopics(missing.map { NewTopic(it, 1, 1.toShort()) }).all().get()
         }
     }
 }
