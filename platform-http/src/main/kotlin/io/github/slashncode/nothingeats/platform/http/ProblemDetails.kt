@@ -15,6 +15,7 @@ import io.ktor.server.response.header
 import io.ktor.server.response.respondText
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
+import kotlin.coroutines.cancellation.CancellationException
 
 /** An RFC 9457 problem response, extended with a stable error [code] and the [requestId]. */
 @Serializable
@@ -39,7 +40,15 @@ val ProblemJson = ContentType("application", "problem+json")
 
 private val log = LoggerFactory.getLogger("io.github.slashncode.nothingeats.platform.http.Problems")
 
-internal fun Application.installProblemDetails() {
+/** Receives every unexpected exception before the generic 500 is sent, e.g. to error tracking. */
+fun interface ExceptionReporter {
+    suspend fun report(
+        call: ApplicationCall,
+        error: Throwable,
+    )
+}
+
+internal fun Application.installProblemDetails(reporter: ExceptionReporter? = null) {
     install(StatusPages) {
         exception<AppError> { call, error ->
             if (error is AppError.RateLimited) {
@@ -57,6 +66,15 @@ internal fun Application.installProblemDetails() {
         }
         exception<Throwable> { call, error ->
             log.error("Unhandled error on {} {}", call.request.local.method.value, call.request.path(), error)
+            if (reporter != null) {
+                try {
+                    reporter.report(call, error)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    log.warn("Reporting the error failed", e)
+                }
+            }
             call.respondProblem(HttpStatusCode.InternalServerError, "INTERNAL_ERROR", "An unexpected error occurred")
         }
         status(HttpStatusCode.NotFound) { call, status ->

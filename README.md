@@ -9,9 +9,11 @@ Part of [NothingEats](https://github.com/slashncode/nothingeats).
 | Artifact | What it gives a service |
 |---|---|
 | `platform-core` | Ordered lifecycle with a readiness gate, health checks, `serve` / `migrate` / `cron <task>` run modes, fail-fast typed config from env vars, the `AppError` model with stable `UPPER_SNAKE` codes |
-| `platform-http` | Ktor server as a lifecycle component, RFC 9457 `application/problem+json` errors, `X-Request-Id` handling, `/health/live` and `/health/ready` |
-| `platform-persistence` | Postgres pool + Exposed, Flyway migrations (run only in `migrate` mode, verified on start), SQLSTATE-based error helpers, explicit retry for serialization failures |
-| `platform-testing` | One Postgres container per test JVM, a fresh database per test |
+| `platform-http` | Ktor server as a lifecycle component, RFC 9457 `application/problem+json` errors, `X-Request-Id` handling, `/health/live` and `/health/ready`, JWT verification against the identity service's JWKS, secure-by-default `public {}` / `authenticated {}` / `requireRole {}` routes (an unguarded route stops the start) |
+| `platform-persistence` | Postgres pool + Exposed, Flyway migration sets (run only in `migrate` mode, verified on start), SQLSTATE-based error helpers, explicit retry for serialization failures |
+| `platform-kafka` | CloudEvents envelope, transactional outbox + relay (`FOR UPDATE SKIP LOCKED`), consumer with inbox deduplication, retries and a dead-letter topic, `cron purge-messaging` |
+| `ktor-posthog` | `ProductAnalytics` on the official PostHog server SDK: server events with the browser's distinct id and `$session_id`, feature flags, unexpected exceptions to error tracking |
+| `platform-testing` | Shared Postgres and Kafka containers with a fresh database / topic per test, `TestTokens` for signed access tokens, `RecordingAnalytics` |
 | `platform-bom` | Aligns all platform modules and the libraries they expose |
 | `version-catalog` | The shared `libs.versions.toml` |
 | `build-logic` | Convention plugins: `nothingeats.kotlin-base`, `nothingeats.kotlin-library`, `nothingeats.kotlin-service`, `nothingeats.kotlinx-serialization`, `nothingeats.publishing` |

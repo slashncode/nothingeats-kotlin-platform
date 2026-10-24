@@ -26,5 +26,6 @@ include(
     "platform-http",
     "platform-persistence",
     "platform-kafka",
+    "ktor-posthog",
     "platform-testing",
 )

@@ -41,6 +41,7 @@ fun Application.installPlatform(
     readiness: Readiness,
     healthChecks: HealthChecks,
     auth: JwtAuth? = null,
+    exceptionReporter: ExceptionReporter? = null,
 ) {
     install(ContentNegotiation) {
         json(PlatformJson)
@@ -57,7 +58,7 @@ fun Application.installPlatform(
         callIdMdc("request_id")
         filter { !it.request.path().startsWith("/health") }
     }
-    installProblemDetails()
+    installProblemDetails(exceptionReporter)
     auth?.install(this)
     routing {
         public { healthRoutes(readiness, healthChecks) }

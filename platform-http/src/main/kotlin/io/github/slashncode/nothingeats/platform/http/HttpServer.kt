@@ -5,6 +5,7 @@ import io.github.slashncode.nothingeats.platform.core.lifecycle.LifecycleCompone
 import io.github.slashncode.nothingeats.platform.core.lifecycle.LifecycleOrder
 import io.github.slashncode.nothingeats.platform.core.lifecycle.Readiness
 import io.github.slashncode.nothingeats.platform.http.auth.JwtAuth
+import io.ktor.server.application.Application
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -27,6 +28,11 @@ fun interface HttpRoutes {
     fun Route.register()
 }
 
+/** Extra application setup (plugins) contributed by other modules, e.g. ktor-posthog. */
+fun interface HttpExtension {
+    fun Application.install()
+}
+
 /** The Ktor server as a lifecycle component: starts early so health probes answer during startup. */
 class HttpServer(
     private val config: HttpServerConfig,
@@ -34,6 +40,8 @@ class HttpServer(
     private val healthChecks: HealthChecks,
     private val routes: Set<HttpRoutes>,
     private val auth: JwtAuth? = null,
+    private val extensions: Set<HttpExtension> = emptySet(),
+    private val exceptionReporter: ExceptionReporter? = null,
 ) : LifecycleComponent {
     override val name = "http-server"
     override val order = LifecycleOrder.HTTP_SERVER
@@ -43,7 +51,8 @@ class HttpServer(
     override suspend fun start() {
         server =
             embeddedServer(Netty, host = config.host, port = config.port) {
-                installPlatform(readiness, healthChecks, auth)
+                installPlatform(readiness, healthChecks, auth, exceptionReporter)
+                extensions.forEach { with(it) { install() } }
                 routing {
                     routes.forEach { with(it) { register() } }
                 }

@@ -16,6 +16,7 @@ dependencies {
         api(project(":platform-http"))
         api(project(":platform-persistence"))
         api(project(":platform-kafka"))
+        api(project(":ktor-posthog"))
         api(project(":platform-testing"))
         api(libs.kotlinx.serialization.json)
         api(libs.hoplite.core)
@@ -32,6 +33,7 @@ dependencies {
         api(libs.testcontainers.postgresql)
         api(libs.testcontainers.kafka)
         api(libs.kafka.clients)
+        api(libs.posthog.server)
     }
 }
 
