@@ -8,6 +8,7 @@ import io.github.slashncode.nothingeats.platform.core.lifecycle.HealthChecks
 import io.github.slashncode.nothingeats.platform.core.lifecycle.HealthStatus
 import io.github.slashncode.nothingeats.platform.core.lifecycle.LifecycleManager
 import io.github.slashncode.nothingeats.platform.core.lifecycle.Readiness
+import io.github.slashncode.nothingeats.platform.http.auth.public
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -24,6 +25,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.application.Application
 import io.ktor.server.request.receive
+import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -48,14 +50,18 @@ private fun check(
 
 private fun Application.sampleRoutes() {
     routing {
-        get("/dishes/{id}") { throw AppError.NotFound(ErrorCode("DISH_NOT_FOUND"), "Dish ${call.parameters["id"]} does not exist") }
-        get("/invalid") {
-            throw AppError.Invalid(ErrorCode("ORDER_INVALID"), "Order is invalid", listOf(Violation("quantity", "must be positive")))
-        }
-        get("/limited") { throw AppError.RateLimited(retryAfter = 30.seconds) }
-        get("/boom") { error("database password is hunter2") }
-        post("/orders") { call.receive<Order>() }
+        public { sampleEndpoints() }
     }
+}
+
+private fun Route.sampleEndpoints() {
+    get("/dishes/{id}") { throw AppError.NotFound(ErrorCode("DISH_NOT_FOUND"), "Dish ${call.parameters["id"]} does not exist") }
+    get("/invalid") {
+        throw AppError.Invalid(ErrorCode("ORDER_INVALID"), "Order is invalid", listOf(Violation("quantity", "must be positive")))
+    }
+    get("/limited") { throw AppError.RateLimited(retryAfter = 30.seconds) }
+    get("/boom") { error("database password is hunter2") }
+    post("/orders") { call.receive<Order>() }
 }
 
 private suspend fun HttpResponse.problem(): Problem = PlatformJson.decodeFromString(Problem.serializer(), bodyAsText())

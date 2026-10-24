@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     api(project(":platform-persistence"))
+    api(project(":platform-http"))
     api(libs.testcontainers.postgresql)
     api(libs.testcontainers.kafka)
     implementation(libs.postgresql)

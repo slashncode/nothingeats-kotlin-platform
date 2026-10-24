@@ -4,6 +4,7 @@ import io.github.slashncode.nothingeats.platform.core.lifecycle.HealthChecks
 import io.github.slashncode.nothingeats.platform.core.lifecycle.LifecycleComponent
 import io.github.slashncode.nothingeats.platform.core.lifecycle.LifecycleOrder
 import io.github.slashncode.nothingeats.platform.core.lifecycle.Readiness
+import io.github.slashncode.nothingeats.platform.http.auth.JwtAuth
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -32,6 +33,7 @@ class HttpServer(
     private val readiness: Readiness,
     private val healthChecks: HealthChecks,
     private val routes: Set<HttpRoutes>,
+    private val auth: JwtAuth? = null,
 ) : LifecycleComponent {
     override val name = "http-server"
     override val order = LifecycleOrder.HTTP_SERVER
@@ -41,7 +43,7 @@ class HttpServer(
     override suspend fun start() {
         server =
             embeddedServer(Netty, host = config.host, port = config.port) {
-                installPlatform(readiness, healthChecks)
+                installPlatform(readiness, healthChecks, auth)
                 routing {
                     routes.forEach { with(it) { register() } }
                 }
