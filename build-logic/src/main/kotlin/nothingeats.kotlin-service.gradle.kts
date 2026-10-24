@@ -34,7 +34,13 @@ jib {
         image = "ghcr.io/slashncode/${rootProject.name}"
     }
     container {
-        jvmFlags = listOf("-XX:MaxRAMPercentage=75", "-XX:+ExitOnOutOfMemoryError")
+        jvmFlags =
+            listOf(
+                "-XX:MaxRAMPercentage=75",
+                "-XX:+ExitOnOutOfMemoryError",
+                // Netty loads its native transport; JDK 25 warns (and will later refuse) without this.
+                "--enable-native-access=ALL-UNNAMED",
+            )
         ports = listOf("8080")
         creationTime = "USE_CURRENT_TIMESTAMP"
     }
