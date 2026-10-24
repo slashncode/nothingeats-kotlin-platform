@@ -19,6 +19,7 @@ kafka = "4.4.0"
 posthog-server = "2.22.0"
 bouncycastle = "1.86"
 java-jwt = "4.6.0"
+angus-mail = "2.0.5"
 slf4j = "2.0.17"
 logback = "1.6.5"
 logstash-encoder = "9.0"
@@ -84,6 +85,9 @@ kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafk
 # Security
 bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 java-jwt = { module = "com.auth0:java-jwt", version.ref = "java-jwt" }
+
+# Mail
+angus-mail = { module = "org.eclipse.angus:angus-mail", version.ref = "angus-mail" }
 
 # Product analytics
 posthog-server = { module = "com.posthog:posthog-server", version.ref = "posthog-server" }
