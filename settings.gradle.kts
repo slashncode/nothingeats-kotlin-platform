@@ -25,5 +25,6 @@ include(
     "platform-core",
     "platform-http",
     "platform-persistence",
+    "platform-kafka",
     "platform-testing",
 )

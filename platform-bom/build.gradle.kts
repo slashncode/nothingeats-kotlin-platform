@@ -15,6 +15,7 @@ dependencies {
         api(project(":platform-core"))
         api(project(":platform-http"))
         api(project(":platform-persistence"))
+        api(project(":platform-kafka"))
         api(project(":platform-testing"))
         api(libs.kotlinx.serialization.json)
         api(libs.hoplite.core)
@@ -29,6 +30,8 @@ dependencies {
         api(libs.logback.classic)
         api(libs.logstash.encoder)
         api(libs.testcontainers.postgresql)
+        api(libs.testcontainers.kafka)
+        api(libs.kafka.clients)
     }
 }
 
