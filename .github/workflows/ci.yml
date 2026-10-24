@@ -1,0 +1,35 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions: {}
+
+jobs:
+  kotlin:
+    uses: slashncode/nothingeats-ci/.github/workflows/kotlin.yml@main
+    permissions:
+      contents: write # dependency graph submission on main
+    with:
+      checkout-platform: false
+
+  codeql:
+    uses: slashncode/nothingeats-ci/.github/workflows/codeql.yml@main
+    permissions:
+      contents: read
+      security-events: write
+    with:
+      checkout-platform: false
+
+  pr:
+    if: github.event_name == 'pull_request'
+    uses: slashncode/nothingeats-ci/.github/workflows/pr-hygiene.yml@main
+    permissions:
+      contents: read
+      pull-requests: write
