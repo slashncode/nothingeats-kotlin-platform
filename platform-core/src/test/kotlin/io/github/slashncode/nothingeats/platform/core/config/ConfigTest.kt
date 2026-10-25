@@ -13,6 +13,11 @@ import kotlin.time.Duration.Companion.seconds
 internal data class SampleConfig(
     val http: SampleHttp = SampleHttp(),
     val database: SampleDatabase,
+    val admin: SampleAdmin = SampleAdmin(),
+)
+
+internal data class SampleAdmin(
+    val emails: List<String> = emptyList(),
 )
 
 internal data class SampleHttp(
@@ -79,5 +84,11 @@ class ConfigTest :
 
         test("secrets never show up in toString") {
             loadConfig<SampleConfig>(required).toString() shouldNotContain "s3cret"
+        }
+
+        test("lists come comma-separated from one variable") {
+            loadConfig<SampleConfig>(required + ("ADMIN__EMAILS" to "a@nothingeats.dev,b@nothingeats.dev")).admin.emails shouldBe
+                listOf("a@nothingeats.dev", "b@nothingeats.dev")
+            loadConfig<SampleConfig>(required).admin.emails shouldBe emptyList()
         }
     })
