@@ -36,7 +36,11 @@ jib {
     container {
         jvmFlags =
             listOf(
-                "-XX:MaxRAMPercentage=75",
+                // Heap and off-heap must fit the container limit together: metaspace, code cache,
+                // threads and Netty's direct buffers (Ktor, Lettuce) take ~150 MiB beside the heap.
+                // At 75% a burst of Argon2 hashes got identity OOM-killed at 512 MiB.
+                "-XX:MaxRAMPercentage=60",
+                "-XX:MaxDirectMemorySize=64m",
                 "-XX:+ExitOnOutOfMemoryError",
                 // Netty loads its native transport; JDK 25 warns (and will later refuse) without this.
                 "--enable-native-access=ALL-UNNAMED",
