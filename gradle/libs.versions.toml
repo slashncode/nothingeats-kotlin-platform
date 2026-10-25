@@ -16,6 +16,7 @@ hikari = "7.1.0"
 postgresql = "42.7.14"
 flyway = "13.11.1"
 kafka = "4.4.0"
+lettuce = "7.9.0.RELEASE"
 posthog-server = "2.22.0"
 bouncycastle = "1.86"
 java-jwt = "4.6.0"
@@ -39,6 +40,7 @@ nothingeats-platform-core = { module = "io.github.slashncode.nothingeats:platfor
 nothingeats-platform-http = { module = "io.github.slashncode.nothingeats:platform-http", version.ref = "nothingeats-platform" }
 nothingeats-platform-persistence = { module = "io.github.slashncode.nothingeats:platform-persistence", version.ref = "nothingeats-platform" }
 nothingeats-platform-kafka = { module = "io.github.slashncode.nothingeats:platform-kafka", version.ref = "nothingeats-platform" }
+nothingeats-platform-valkey = { module = "io.github.slashncode.nothingeats:platform-valkey", version.ref = "nothingeats-platform" }
 nothingeats-ktor-posthog = { module = "io.github.slashncode.nothingeats:ktor-posthog", version.ref = "nothingeats-platform" }
 nothingeats-platform-testing = { module = "io.github.slashncode.nothingeats:platform-testing", version.ref = "nothingeats-platform" }
 
@@ -81,6 +83,7 @@ flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", versio
 
 # Messaging
 kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
+lettuce-core = { module = "io.lettuce:lettuce-core", version.ref = "lettuce" }
 
 # Security
 bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
