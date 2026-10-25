@@ -13,7 +13,7 @@ Part of [NothingEats](https://github.com/slashncode/nothingeats).
 | `platform-persistence` | Postgres pool + Exposed, Flyway migration sets (run only in `migrate` mode, verified on start), SQLSTATE-based error helpers, explicit retry for serialization failures |
 | `platform-kafka` | CloudEvents envelope, transactional outbox + relay (`FOR UPDATE SKIP LOCKED`), consumer with inbox deduplication, retries and a dead-letter topic, `cron purge-messaging` |
 | `platform-valkey` | Valkey connection (Lettuce) as lifecycle component and health check; `RateLimiter` with fixed windows, hashed subjects, failing open |
-| `ktor-posthog` | `ProductAnalytics` on the official PostHog server SDK: server events with the browser's distinct id and `$session_id`, feature flags, unexpected exceptions to error tracking |
+| `ktor-posthog` | `ProductAnalytics` on the official PostHog server SDK: server events with the browser's distinct id and `$session_id`, feature flags, unexpected exceptions to error tracking, GDPR erasure of a person (person, events, recordings) with a personal API key |
 | `platform-testing` | Shared Postgres, Kafka and Valkey containers with a fresh database / topic / key prefix per test, `TestTokens` for signed access tokens, `RecordingAnalytics` |
 | `platform-bom` | Aligns all platform modules and the libraries they expose |
 | `version-catalog` | The shared `libs.versions.toml` |

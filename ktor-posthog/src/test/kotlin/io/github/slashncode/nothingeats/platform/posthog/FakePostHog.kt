@@ -1,9 +1,11 @@
 package io.github.slashncode.nothingeats.platform.posthog
 
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.server.request.header
 import io.ktor.server.request.receiveChannel
+import io.ktor.server.request.uri
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -21,6 +23,17 @@ import java.util.zip.GZIPInputStream
 class FakePostHog : Closeable {
     private val port = ServerSocket(0).use { it.localPort }
     private val received = CopyOnWriteArrayList<JsonObject>()
+    private val calls = CopyOnWriteArrayList<Call>()
+
+    /** A request to the private API (anything but ingestion). */
+    data class Call(
+        val path: String,
+        val authorization: String?,
+        val body: JsonObject,
+    )
+
+    /** Status for private API calls, e.g. 500 to test retries. */
+    @Volatile var apiStatus = HttpStatusCode.Accepted
 
     val url = "http://localhost:$port"
 
@@ -38,6 +51,11 @@ class FakePostHog : Closeable {
                             raw
                         }
                     val json = Json.parseToJsonElement(body.decodeToString()).jsonObject
+                    if (call.request.uri.startsWith("/api/")) {
+                        calls += Call(call.request.uri, call.request.header("Authorization"), json)
+                        call.respondText("{}", status = apiStatus)
+                        return@post
+                    }
                     json["batch"]?.jsonArray?.forEach { received += it.jsonObject } ?: received.add(json)
                     call.respondText("""{"status":"Ok"}""")
                 }
@@ -45,6 +63,8 @@ class FakePostHog : Closeable {
         }.start(wait = false)
 
     fun events(): List<JsonObject> = received.toList()
+
+    fun apiCalls(): List<Call> = calls.toList()
 
     override fun close() = server.stop(0, 0)
 }

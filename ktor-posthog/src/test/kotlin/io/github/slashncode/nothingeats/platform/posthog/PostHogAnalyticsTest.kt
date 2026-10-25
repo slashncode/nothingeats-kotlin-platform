@@ -1,20 +1,25 @@
 package io.github.slashncode.nothingeats.platform.posthog
 
+import com.sksamuel.hoplite.Secret
+import io.github.slashncode.nothingeats.platform.core.analytics.ErasureResult
 import io.github.slashncode.nothingeats.platform.core.lifecycle.HealthChecks
 import io.github.slashncode.nothingeats.platform.core.lifecycle.Readiness
 import io.github.slashncode.nothingeats.platform.http.auth.public
 import io.github.slashncode.nothingeats.platform.http.installPlatform
 import io.kotest.assertions.nondeterministic.eventually
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.shouldBe
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.time.Duration.Companion.seconds
@@ -88,5 +93,34 @@ class PostHogAnalyticsTest :
             analytics.isFeatureEnabled("new-checkout", "user-1", default = true) shouldBe true
             analytics.featureFlag("new-checkout", "user-1") shouldBe null
             analytics.stop()
+        }
+
+        test("erasing a person deletes person, events and recordings through the private API") {
+            FakePostHog().use { posthog ->
+                val analytics = PostHogAnalytics(PostHogSettings(personalApiKey = Secret("phx_test"), apiHost = posthog.url))
+
+                analytics.erasePerson("user-\"1") shouldBe ErasureResult.ERASED
+
+                val call = posthog.apiCalls().single()
+                call.path shouldBe "/api/projects/@current/persons/bulk_delete/"
+                call.authorization shouldBe "Bearer phx_test"
+                call.body["distinct_ids"]!!
+                    .jsonArray
+                    .single()
+                    .jsonPrimitive.content shouldBe "user-\"1"
+                call.body["delete_events"]!!.jsonPrimitive.content shouldBe "true"
+                call.body["delete_recordings"]!!.jsonPrimitive.content shouldBe "true"
+            }
+        }
+
+        test("without a personal API key nothing is erased; a failing API throws so callers retry") {
+            PostHogAnalytics(PostHogSettings(projectToken = "phc_test")).erasePerson("user-1") shouldBe ErasureResult.NOT_CONFIGURED
+
+            FakePostHog().use { posthog ->
+                posthog.apiStatus = HttpStatusCode.InternalServerError
+                val analytics = PostHogAnalytics(PostHogSettings(personalApiKey = Secret("phx_test"), apiHost = posthog.url))
+
+                shouldThrow<IllegalStateException> { analytics.erasePerson("user-1") }
+            }
         }
     })

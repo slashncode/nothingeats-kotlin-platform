@@ -1,6 +1,7 @@
 package io.github.slashncode.nothingeats.platform.testing
 
 import io.github.slashncode.nothingeats.platform.core.analytics.AnalyticsContext
+import io.github.slashncode.nothingeats.platform.core.analytics.ErasureResult
 import io.github.slashncode.nothingeats.platform.core.analytics.ProductAnalytics
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -16,6 +17,10 @@ class RecordingAnalytics : ProductAnalytics {
     val events = CopyOnWriteArrayList<Event>()
     val exceptions = CopyOnWriteArrayList<Throwable>()
     val flags = ConcurrentHashMap<String, Any>()
+    val erased = CopyOnWriteArrayList<String>()
+
+    /** What [erasePerson] answers; set to NOT_CONFIGURED or make it throw to test retries. */
+    var erasure: () -> ErasureResult = { ErasureResult.ERASED }
 
     override suspend fun capture(
         event: String,
@@ -45,4 +50,7 @@ class RecordingAnalytics : ProductAnalytics {
     ) {
         exceptions += error
     }
+
+    override suspend fun erasePerson(distinctId: String): ErasureResult =
+        erasure().also { if (it == ErasureResult.ERASED) erased += distinctId }
 }

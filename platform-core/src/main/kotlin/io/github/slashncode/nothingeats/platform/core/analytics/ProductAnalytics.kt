@@ -46,7 +46,16 @@ interface ProductAnalytics {
         properties: Map<String, Any?> = emptyMap(),
         distinctId: String? = null,
     )
+
+    /**
+     * Erases everything the vendor holds about [distinctId] (person, events, recordings) for a GDPR
+     * deletion. [ErasureResult.NOT_CONFIGURED] when this environment cannot erase (e.g. no API key),
+     * so callers keep the request and retry later; throws when the vendor fails.
+     */
+    suspend fun erasePerson(distinctId: String): ErasureResult
 }
+
+enum class ErasureResult { ERASED, NOT_CONFIGURED }
 
 /** For services or environments without analytics. */
 object NoopAnalytics : ProductAnalytics {
@@ -72,4 +81,6 @@ object NoopAnalytics : ProductAnalytics {
         properties: Map<String, Any?>,
         distinctId: String?,
     ) = Unit
+
+    override suspend fun erasePerson(distinctId: String) = ErasureResult.NOT_CONFIGURED
 }
