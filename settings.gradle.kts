@@ -27,6 +27,7 @@ include(
     "platform-persistence",
     "platform-kafka",
     "platform-valkey",
+    "platform-grpc",
     "ktor-posthog",
     "platform-testing",
 )

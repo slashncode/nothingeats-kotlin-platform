@@ -13,6 +13,7 @@ dependencies {
     implementation(libs.kover.gradle.plugin)
     implementation(libs.ktlint.gradle.plugin)
     implementation(libs.jib.gradle.plugin)
+    implementation(libs.protobuf.gradle.plugin)
 }
 
 publishing {

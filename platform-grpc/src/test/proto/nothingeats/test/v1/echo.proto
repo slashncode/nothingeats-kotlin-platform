@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package nothingeats.test.v1;
+
+option java_multiple_files = true;
+option java_package = "io.github.slashncode.nothingeats.platform.grpc.test.v1";
+
+// A service for the platform's own tests: auth, error mapping, deadlines.
+service EchoService {
+  rpc Echo(EchoRequest) returns (EchoResponse);
+  rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse);
+  rpc Fail(FailRequest) returns (FailResponse);
+}
+
+message EchoRequest {
+  string text = 1;
+  int64 delay_millis = 2;
+}
+
+message EchoResponse {
+  string text = 1;
+}
+
+message WhoAmIRequest {}
+
+message WhoAmIResponse {
+  string user_id = 1;
+}
+
+message FailRequest {
+  string kind = 1;
+}
+
+message FailResponse {}

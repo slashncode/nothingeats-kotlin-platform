@@ -11,12 +11,16 @@ javaPlatform {
 dependencies {
     api(platform(libs.ktor.bom))
     api(platform(libs.kotlinx.coroutines.bom))
+    api(platform(libs.grpc.bom))
     constraints {
         api(project(":platform-core"))
         api(project(":platform-http"))
         api(project(":platform-persistence"))
         api(project(":platform-kafka"))
         api(project(":platform-valkey"))
+        api(project(":platform-grpc"))
+        api(libs.grpc.kotlin.stub)
+        api(libs.protobuf.kotlin)
         api(project(":ktor-posthog"))
         api(project(":platform-testing"))
         api(libs.kotlinx.serialization.json)

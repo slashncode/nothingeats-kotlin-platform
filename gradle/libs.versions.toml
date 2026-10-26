@@ -17,6 +17,10 @@ postgresql = "42.7.14"
 flyway = "13.11.1"
 kafka = "4.4.0"
 lettuce = "7.9.0.RELEASE"
+grpc = "1.85.1"
+grpc-kotlin = "1.5.0"
+protobuf = "4.36.2"
+protobuf-gradle-plugin = "0.10.0"
 posthog-server = "2.22.0"
 bouncycastle = "1.86"
 java-jwt = "4.6.0"
@@ -41,6 +45,7 @@ nothingeats-platform-http = { module = "io.github.slashncode.nothingeats:platfor
 nothingeats-platform-persistence = { module = "io.github.slashncode.nothingeats:platform-persistence", version.ref = "nothingeats-platform" }
 nothingeats-platform-kafka = { module = "io.github.slashncode.nothingeats:platform-kafka", version.ref = "nothingeats-platform" }
 nothingeats-platform-valkey = { module = "io.github.slashncode.nothingeats:platform-valkey", version.ref = "nothingeats-platform" }
+nothingeats-platform-grpc = { module = "io.github.slashncode.nothingeats:platform-grpc", version.ref = "nothingeats-platform" }
 nothingeats-ktor-posthog = { module = "io.github.slashncode.nothingeats:ktor-posthog", version.ref = "nothingeats-platform" }
 nothingeats-platform-testing = { module = "io.github.slashncode.nothingeats:platform-testing", version.ref = "nothingeats-platform" }
 
@@ -85,6 +90,16 @@ flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", versio
 kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
 lettuce-core = { module = "io.lettuce:lettuce-core", version.ref = "lettuce" }
 
+# gRPC and protobuf (code generation: nothingeats.grpc convention plugin)
+grpc-bom = { module = "io.grpc:grpc-bom", version.ref = "grpc" }
+grpc-netty-shaded = { module = "io.grpc:grpc-netty-shaded" }
+grpc-protobuf = { module = "io.grpc:grpc-protobuf" }
+grpc-stub = { module = "io.grpc:grpc-stub" }
+grpc-services = { module = "io.grpc:grpc-services" }
+grpc-inprocess = { module = "io.grpc:grpc-inprocess" }
+grpc-kotlin-stub = { module = "io.grpc:grpc-kotlin-stub", version.ref = "grpc-kotlin" }
+protobuf-kotlin = { module = "com.google.protobuf:protobuf-kotlin", version.ref = "protobuf" }
+
 # Security
 bouncycastle-prov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 java-jwt = { module = "com.auth0:java-jwt", version.ref = "java-jwt" }
@@ -116,6 +131,7 @@ ksp-gradle-plugin = { module = "com.google.devtools.ksp:symbol-processing-gradle
 kover-gradle-plugin = { module = "org.jetbrains.kotlinx:kover-gradle-plugin", version.ref = "kover" }
 ktlint-gradle-plugin = { module = "org.jlleitschuh.gradle:ktlint-gradle", version.ref = "ktlint-gradle" }
 jib-gradle-plugin = { module = "com.google.cloud.tools:jib-gradle-plugin", version.ref = "jib" }
+protobuf-gradle-plugin = { module = "com.google.protobuf:protobuf-gradle-plugin", version.ref = "protobuf-gradle-plugin" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

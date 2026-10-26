@@ -42,6 +42,15 @@ private suspend fun HttpResponse.code() = PlatformJson.decodeFromString(Problem.
 
 class AuthTest :
     FunSpec({
+        test("tokens verify outside Ktor too (gRPC metadata), with the same rules") {
+            tokens.jwtAuth.verify(tokens.accessToken(userId = "u-7", roles = setOf("admin"))) shouldBe
+                AuthenticatedUser("u-7", setOf("admin"), "de")
+            tokens.jwtAuth.verify(tokens.accessToken(keyId = "unknown")) shouldBe null
+            tokens.jwtAuth.verify(tokens.accessToken(audience = "someone-else")) shouldBe null
+            tokens.jwtAuth.verify(tokens.accessToken(expiresIn = (-5).minutes)) shouldBe null
+            tokens.jwtAuth.verify("not a token") shouldBe null
+        }
+
         test("public routes and health probes need no token") {
             api {
                 client.get("/menu").bodyAsText() shouldBe "open"
