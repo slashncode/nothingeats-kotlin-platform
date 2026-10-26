@@ -25,6 +25,13 @@ data class ValkeyConfig(
     val timeout: Duration = 2.seconds,
 )
 
+internal fun ValkeyConfig.redisUri(): RedisURI =
+    RedisURI.Builder
+        .redis(host, port)
+        .withTimeout(timeout.toJavaDuration())
+        .apply { password?.let { withAuthentication(username, it.value) } }
+        .build()
+
 /**
  * The service's Valkey connection: one Lettuce connection, thread-safe and multiplexed, that
  * reconnects on its own after it was established once.
@@ -45,13 +52,7 @@ class Valkey(
 
     override suspend fun start() =
         withContext(Dispatchers.IO) {
-            val uri =
-                RedisURI.Builder
-                    .redis(config.host, config.port)
-                    .withTimeout(config.timeout.toJavaDuration())
-                    .apply { config.password?.let { withAuthentication(config.username, it.value) } }
-                    .build()
-            val redis = RedisClient.create(uri)
+            val redis = RedisClient.create(config.redisUri())
             try {
                 connection = redis.connect()
                 client = redis
