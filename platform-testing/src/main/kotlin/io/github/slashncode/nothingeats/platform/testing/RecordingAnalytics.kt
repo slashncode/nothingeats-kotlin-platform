@@ -17,6 +17,9 @@ class RecordingAnalytics : ProductAnalytics {
     val events = CopyOnWriteArrayList<Event>()
     val exceptions = CopyOnWriteArrayList<Throwable>()
     val flags = ConcurrentHashMap<String, Any>()
+
+    /** JSON payloads by flag key, for [featureFlagPayload]. */
+    val payloads = ConcurrentHashMap<String, String>()
     val erased = CopyOnWriteArrayList<String>()
 
     /** What [erasePerson] answers; set to NOT_CONFIGURED or make it throw to test retries. */
@@ -42,6 +45,11 @@ class RecordingAnalytics : ProductAnalytics {
         flag: String,
         distinctId: String,
     ): Any? = flags[flag]
+
+    override suspend fun featureFlagPayload(
+        flag: String,
+        distinctId: String,
+    ): String? = payloads[flag]
 
     override suspend fun captureException(
         error: Throwable,

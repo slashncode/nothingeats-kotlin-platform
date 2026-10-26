@@ -14,6 +14,13 @@ data class AnalyticsContext(
 ) : AbstractCoroutineContextElement(AnalyticsContext) {
     companion object Key : CoroutineContext.Key<AnalyticsContext> {
         suspend fun current(): AnalyticsContext? = currentCoroutineContext()[Key]
+
+        /**
+         * Whether the current request comes from a browser with analytics consent: the web app
+         * loads PostHog, and so sends its distinct id, only after "yes". Events published for
+         * other services carry this answer, so their consumers capture only with consent.
+         */
+        suspend fun consented(): Boolean = current()?.distinctId != null
     }
 }
 
@@ -40,6 +47,15 @@ interface ProductAnalytics {
         flag: String,
         distinctId: String,
     ): Any?
+
+    /**
+     * The JSON payload of the variant [distinctId] gets (an experiment's settings, e.g. odds), or
+     * null when the flag is off, unknown or has no payload. Counts as an exposure.
+     */
+    suspend fun featureFlagPayload(
+        flag: String,
+        distinctId: String,
+    ): String?
 
     suspend fun captureException(
         error: Throwable,
@@ -75,6 +91,11 @@ object NoopAnalytics : ProductAnalytics {
         flag: String,
         distinctId: String,
     ): Any? = null
+
+    override suspend fun featureFlagPayload(
+        flag: String,
+        distinctId: String,
+    ): String? = null
 
     override suspend fun captureException(
         error: Throwable,

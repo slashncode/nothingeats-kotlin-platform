@@ -87,6 +87,16 @@ class PostHogAnalytics(
         distinctId: String,
     ): Any? = evaluate(flag, distinctId)?.getFlag(flag)
 
+    // getFlag records the exposure ($feature_flag_called) that experiments count; the payload alone would not.
+    override suspend fun featureFlagPayload(
+        flag: String,
+        distinctId: String,
+    ): String? {
+        val flags = evaluate(flag, distinctId) ?: return null
+        if (flags.getFlag(flag) == null) return null
+        return flags.getFlagPayload(flag)
+    }
+
     // Locally when a personal API key is configured, otherwise one /flags request per call.
     private suspend fun evaluate(
         flag: String,
