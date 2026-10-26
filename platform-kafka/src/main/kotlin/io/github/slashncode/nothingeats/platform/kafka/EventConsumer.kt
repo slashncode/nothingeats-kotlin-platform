@@ -99,7 +99,7 @@ class EventConsumer(
     private val clock: Clock = Clock.systemUTC(),
 ) : LifecycleComponent,
     HealthCheck {
-    override val name = "event-consumer"
+    override val name = "event-consumer:${config.groupId}"
     override val order = LifecycleOrder.TRAFFIC
 
     private val log = LoggerFactory.getLogger(EventConsumer::class.java)
