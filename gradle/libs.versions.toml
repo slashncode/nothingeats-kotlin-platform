@@ -64,6 +64,7 @@ ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negoti
 ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages" }
 ktor-server-call-id = { module = "io.ktor:ktor-server-call-id" }
 ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging" }
+ktor-server-sse = { module = "io.ktor:ktor-server-sse" }
 ktor-server-auth = { module = "io.ktor:ktor-server-auth" }
 ktor-server-auth-jwt = { module = "io.ktor:ktor-server-auth-jwt" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host" }
