@@ -39,6 +39,38 @@ interface EventHandler {
      * at-least-once. Throwing makes the consumer retry, then park the event in the DLQ.
      */
     suspend fun handle(event: CloudEvent)
+
+    /** With the record's position in Kafka; defaults to [handle]. */
+    suspend fun handle(
+        event: CloudEvent,
+        position: EventPosition,
+    ) = handle(event)
+}
+
+/** Where a record sits in Kafka. Per partition, and so per key, the offset only grows. */
+data class EventPosition(
+    val topic: String,
+    val partition: Int,
+    val offset: Long,
+)
+
+/**
+ * For consumers without an inbox (`EventConsumer(db = null)`) whose writes are idempotent and
+ * ordered by themselves, e.g. search documents with the offset as external version. Every event
+ * may arrive more than once.
+ */
+interface PositionedEventHandler : EventHandler {
+    suspend fun handleAt(
+        event: CloudEvent,
+        position: EventPosition,
+    )
+
+    override suspend fun handle(
+        event: CloudEvent,
+        position: EventPosition,
+    ) = handleAt(event, position)
+
+    override suspend fun handle(event: CloudEvent): Unit = error("${this::class.simpleName} needs the record position")
 }
 
 data class EventConsumerConfig(
@@ -60,7 +92,8 @@ data class EventConsumerConfig(
 class EventConsumer(
     private val config: EventConsumerConfig,
     private val handlers: Set<EventHandler>,
-    private val db: PostgresDatabase,
+    /** The inbox for exactly-once database effects; null when every handler is idempotent itself. */
+    private val db: PostgresDatabase?,
     private val consumerFactory: () -> Consumer<String, ByteArray>,
     private val deadLetters: Producer<String, ByteArray>,
     private val clock: Clock = Clock.systemUTC(),
@@ -133,8 +166,13 @@ class EventConsumer(
                 return
             }
         val handler = handlerByTopic.getValue(record.topic())
+        val position = EventPosition(record.topic(), record.partition(), record.offset())
         for (attempt in 1..config.maxAttempts) {
             try {
+                if (db == null) {
+                    handler.handle(event, position)
+                    return
+                }
                 db.transaction {
                     val firstTime =
                         InboxEvents
@@ -143,7 +181,7 @@ class EventConsumer(
                                 it[eventId] = event.id
                                 it[processedAt] = clock.instant()
                             }.insertedCount > 0
-                    if (firstTime) handler.handle(event) else log.info("Skipping duplicate event {} ({})", event.id, event.type)
+                    if (firstTime) handler.handle(event, position) else log.info("Skipping duplicate event {} ({})", event.id, event.type)
                 }
                 return
             } catch (e: CancellationException) {

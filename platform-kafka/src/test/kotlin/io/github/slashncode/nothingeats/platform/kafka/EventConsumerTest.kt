@@ -51,7 +51,7 @@ private fun send(
 private fun consumer(
     groupId: String,
     handler: EventHandler,
-    database: PostgresDatabase,
+    database: PostgresDatabase?,
 ) = EventConsumer(
     config = EventConsumerConfig(groupId = groupId, retryBackoff = 50.milliseconds, pollTimeout = 200.milliseconds),
     handlers = setOf(handler),
@@ -111,5 +111,30 @@ class EventConsumerTest :
             handler.attempts shouldBe 3
             consumer.stop()
             database.stop()
+        }
+
+        test("without an inbox, positioned handlers get every delivery with its offset") {
+            val topic = KafkaTestCluster.topic("catalog.dish")
+            val seen = java.util.concurrent.CopyOnWriteArrayList<Pair<String?, Long>>()
+            val handler =
+                object : PositionedEventHandler {
+                    override val topic = topic
+
+                    override suspend fun handleAt(
+                        event: CloudEvent,
+                        position: EventPosition,
+                    ) {
+                        seen += event.subject to position.offset
+                    }
+                }
+            val json = EventJson.encodeToString(CloudEvent.serializer(), event("e1", "u1"))
+            send(topic, "u1", json)
+            send(topic, "u1", json)
+            val consumer = consumer("search-${System.nanoTime()}", handler, database = null)
+
+            consumer.onReady()
+
+            eventually(15.seconds) { seen shouldContainExactly listOf("u1" to 0L, "u1" to 1L) }
+            consumer.stop()
         }
     })
