@@ -22,9 +22,13 @@ data class GrpcClientConfig(
     val target: String,
     /** Every call has a deadline; the caller decides what to do when it passes. */
     val deadline: Duration = 2.seconds,
-    /** Attempts for UNAVAILABLE (connection trouble), the one status that is always safe to retry. */
+    /** Attempts for UNAVAILABLE (connection trouble), the one status that is always safe to retry; 1 = no retries. */
     val maxAttempts: Int = 3,
-)
+) {
+    init {
+        require(maxAttempts >= 1) { "maxAttempts must be at least 1" }
+    }
+}
 
 /**
  * One channel to another service, closed with the service. Calls go out with [GrpcClientConfig.deadline]
@@ -40,11 +44,17 @@ class GrpcChannel(
     override val name = "grpc-channel:${config.target}"
     override val order = LifecycleOrder.INFRASTRUCTURE
 
+    // gRPC refuses a retry policy with a single attempt, so "no retries" means no policy at all.
     val channel: ManagedChannel =
         builder()
-            .defaultServiceConfig(retryPolicy(config.maxAttempts))
-            .enableRetry()
-            .build()
+            .apply {
+                if (config.maxAttempts > 1) {
+                    defaultServiceConfig(retryPolicy(config.maxAttempts))
+                    enableRetry()
+                } else {
+                    disableRetry()
+                }
+            }.build()
 
     /** [stub] with the configured deadline and the end user's token, if the call is on their behalf. */
     fun <S : AbstractStub<S>> prepare(

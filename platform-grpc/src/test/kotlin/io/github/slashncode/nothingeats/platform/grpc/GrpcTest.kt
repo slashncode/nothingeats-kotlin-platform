@@ -120,6 +120,10 @@ class GrpcTest :
             grpc.server.stop()
         }
 
+        test("a channel without retries is allowed (gRPC refuses a retry policy with one attempt)") {
+            GrpcChannel(GrpcClientConfig(target = "localhost:1", maxAttempts = 1)).stop()
+        }
+
         test("every call has a deadline") {
             val grpc = running(deadlineMillis = 100)
 
