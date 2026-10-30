@@ -24,6 +24,14 @@ ktlint {
     }
 }
 
+// ktlint itself logs with logback 1.3, which has known vulnerabilities: use the services' version.
+dependencies {
+    constraints {
+        add("ktlint", libs.findLibrary("logback-classic").get())
+        add("ktlint", libs.findLibrary("logback-core").get())
+    }
+}
+
 dependencies {
     "testImplementation"(libs.findLibrary("kotest-runner-junit5").get())
     "testImplementation"(libs.findLibrary("kotest-assertions-core").get())

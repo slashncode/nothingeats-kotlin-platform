@@ -26,8 +26,16 @@ bouncycastle = "1.86"
 java-jwt = "4.6.0"
 angus-mail = "2.0.5"
 slf4j = "2.0.17"
-logback = "1.6.5"
+logback = "1.6.6"
 logstash-encoder = "9.0"
+# Pinned above what other libraries and plugins bring along, for fixed vulnerabilities:
+# Jackson 2 (Ktor's java-jwt, Jib), Jackson 3 (logstash-encoder), lz4 (kafka-clients),
+# freemarker (Kover's reports), commons-lang3 (Jib).
+jackson2 = "2.22.4"
+jackson3 = "3.2.4"
+lz4 = "1.12.1"
+freemarker = "2.3.35"
+commons-lang3 = "3.21.0"
 micrometer = "1.17.2"
 kotest = "6.2.6"
 mockk = "1.14.11"
@@ -115,6 +123,12 @@ posthog-server = { module = "com.posthog:posthog-server", version.ref = "posthog
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 logstash-encoder = { module = "net.logstash.logback:logstash-logback-encoder", version.ref = "logstash-encoder" }
+logback-core = { module = "ch.qos.logback:logback-core", version.ref = "logback" }
+jackson2-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson2" }
+jackson3-bom = { module = "tools.jackson:jackson-bom", version.ref = "jackson3" }
+lz4-java = { module = "at.yawk.lz4:lz4-java", version.ref = "lz4" }
+freemarker = { module = "org.freemarker:freemarker", version.ref = "freemarker" }
+commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
 micrometer-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
 
 # Testing
