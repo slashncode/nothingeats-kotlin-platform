@@ -29,13 +29,15 @@ slf4j = "2.0.17"
 logback = "1.6.6"
 logstash-encoder = "9.0"
 # Pinned above what other libraries and plugins bring along, for fixed vulnerabilities:
-# Jackson 2 (Ktor's java-jwt, Jib), Jackson 3 (logstash-encoder), lz4 (kafka-clients),
-# freemarker (Kover's reports), commons-lang3 (Jib).
+# Jackson 2 (Ktor's java-jwt, Jib), Jackson 3 (logstash-encoder), lz4 and snappy (kafka-clients),
+# Guava (gRPC, Jib), freemarker (Kover's reports), commons-lang3 (Jib).
 jackson2 = "2.22.4"
 jackson3 = "3.2.4"
 lz4 = "1.12.1"
 freemarker = "2.3.35"
 commons-lang3 = "3.21.0"
+guava = "33.7.2-jre"
+snappy = "1.1.10.12"
 micrometer = "1.17.2"
 kotest = "6.2.6"
 mockk = "1.14.11"
@@ -129,6 +131,8 @@ jackson3-bom = { module = "tools.jackson:jackson-bom", version.ref = "jackson3" 
 lz4-java = { module = "at.yawk.lz4:lz4-java", version.ref = "lz4" }
 freemarker = { module = "org.freemarker:freemarker", version.ref = "freemarker" }
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
+guava-bom = { module = "com.google.guava:guava-bom", version.ref = "guava" }
+snappy-java = { module = "org.xerial.snappy:snappy-java", version.ref = "snappy" }
 micrometer-prometheus = { module = "io.micrometer:micrometer-registry-prometheus", version.ref = "micrometer" }
 
 # Testing

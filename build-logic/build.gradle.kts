@@ -18,6 +18,7 @@ dependencies {
     // What the plugins bring along, raised to versions without known vulnerabilities. It only runs
     // at build time, but it is part of the dependency graph CI submits to GitHub.
     implementation(platform(libs.jackson2.bom))
+    implementation(platform(libs.guava.bom))
     constraints {
         implementation(libs.freemarker) { because("Kover's HTML reports bring 2.3.32 (GHSA-27j2-h3m2-8237)") }
         implementation(libs.commons.lang3) { because("Jib brings 3.14.0") }

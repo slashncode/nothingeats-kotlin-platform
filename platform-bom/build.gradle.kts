@@ -15,6 +15,7 @@ dependencies {
     // Newer than what Ktor (java-jwt) and logstash-encoder ask for: fixed vulnerabilities.
     api(platform(libs.jackson2.bom))
     api(platform(libs.jackson3.bom))
+    api(platform(libs.guava.bom))
     constraints {
         api(project(":platform-core"))
         api(project(":platform-http"))
@@ -42,6 +43,7 @@ dependencies {
         api(libs.testcontainers.kafka)
         api(libs.kafka.clients)
         api(libs.lz4.java) { because("kafka-clients brings 1.11.2, which has known vulnerabilities") }
+        api(libs.snappy.java) { because("kafka-clients brings 1.1.10.7, which has known vulnerabilities") }
         api(libs.lettuce.core)
         api(libs.posthog.server)
     }
