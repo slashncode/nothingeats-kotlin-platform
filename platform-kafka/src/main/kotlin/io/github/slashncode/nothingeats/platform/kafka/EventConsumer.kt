@@ -79,6 +79,9 @@ data class EventConsumerConfig(
     val maxAttempts: Int = 3,
     val retryBackoff: Duration = 1.seconds,
     val pollTimeout: Duration = 1.seconds,
+    /** First pause before a failed consumer is replaced; it doubles up to [maxRestartBackoff]. */
+    val restartBackoff: Duration = 1.seconds,
+    val maxRestartBackoff: Duration = 30.seconds,
 ) {
     /** Events that failed [maxAttempts] times end up here, with the original topic and error as headers. */
     val deadLetterTopic: String get() = "$groupId.dlq"
@@ -88,6 +91,11 @@ data class EventConsumerConfig(
  * Consumes the topics of all [handlers] in one consumer group. Records are handled one by one per
  * poll (keeping per-key order); offsets are committed only after every record of the poll was
  * handled or written to the dead-letter topic, so a crash means redelivery, never loss.
+ *
+ * A consumer that fails (a commit after the group took its partitions away, e.g. after the host
+ * slept past the poll interval; a broker error) is closed and replaced by a fresh one, after a
+ * pause that grows with every failure in a row. Readiness is down from the failure until the new
+ * consumer's first successful poll. The redelivered records meet the inbox.
  */
 class EventConsumer(
     private val config: EventConsumerConfig,
@@ -108,7 +116,8 @@ class EventConsumer(
     // KafkaConsumer is not thread-safe: everything touching it runs on this one thread.
     private val consumerThread = Executors.newSingleThreadExecutor { Thread(it, "kafka-consumer-${config.groupId}") }
     private val scope = CoroutineScope(SupervisorJob() + consumerThread.asCoroutineDispatcher())
-    private var consumer: Consumer<String, ByteArray>? = null
+
+    @Volatile private var consumer: Consumer<String, ByteArray>? = null
     private var job: Job? = null
 
     @Volatile private var failure: Throwable? = null
@@ -121,21 +130,32 @@ class EventConsumer(
         if (handlers.isEmpty()) return
         job =
             scope.launch {
-                val kafka = consumerFactory().also { consumer = it }
-                kafka.subscribe(handlerByTopic.keys)
-                try {
-                    consumeLoop(kafka)
-                } catch (e: WakeupException) {
-                    log.debug("Consumer woken up for shutdown")
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Throwable) {
-                    failure = e
-                    log.error("Event consumer {} stopped", config.groupId, e)
-                } finally {
-                    kafka.close(CloseOptions.timeout(java.time.Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS)))
+                var failuresInARow = 0
+                while (isActive) {
+                    val kafka = consumerFactory().also { consumer = it }
+                    try {
+                        kafka.subscribe(handlerByTopic.keys)
+                        consumeLoop(kafka) { failuresInARow = 0 }
+                    } catch (e: WakeupException) {
+                        log.debug("Consumer woken up for shutdown")
+                        return@launch
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        failure = e
+                        failuresInARow++
+                        log.error("Event consumer {} failed ({} in a row); replacing it", config.groupId, failuresInARow, e)
+                    } finally {
+                        kafka.close(CloseOptions.timeout(java.time.Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS)))
+                    }
+                    delay(restartDelay(failuresInARow))
                 }
             }
+    }
+
+    private fun restartDelay(failuresInARow: Int): Duration {
+        val doublings = (failuresInARow - 1).coerceIn(0, MAX_DOUBLINGS)
+        return (config.restartBackoff * (1 shl doublings)).coerceAtMost(config.maxRestartBackoff)
     }
 
     override suspend fun stop() {
@@ -147,9 +167,17 @@ class EventConsumer(
     override suspend fun check(): HealthStatus =
         failure?.let { HealthStatus.down("consumer stopped: ${it::class.simpleName}") } ?: HealthStatus.UP
 
-    private suspend fun consumeLoop(kafka: Consumer<String, ByteArray>) {
+    private suspend fun consumeLoop(
+        kafka: Consumer<String, ByteArray>,
+        onHealthy: () -> Unit,
+    ) {
         while (scope.isActive) {
             val records = kafka.poll(config.pollTimeout.toJavaDuration())
+            if (failure != null) {
+                failure = null
+                log.info("Event consumer {} is consuming again", config.groupId)
+            }
+            onHealthy()
             for (record in records) {
                 process(record)
             }
@@ -215,6 +243,7 @@ class EventConsumer(
 
     private companion object {
         const val CLOSE_TIMEOUT_SECONDS = 5L
+        const val MAX_DOUBLINGS = 10
         const val SEND_TIMEOUT_SECONDS = 30L
         const val MAX_ERROR_LENGTH = 500
     }

@@ -9,6 +9,9 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.coroutines.delay
+import org.apache.kafka.clients.consumer.CommitFailedException
+import org.apache.kafka.clients.consumer.MockConsumer
+import org.apache.kafka.clients.consumer.internals.AutoOffsetResetStrategy
 import org.apache.kafka.clients.producer.ProducerRecord
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Duration.Companion.milliseconds
@@ -136,5 +139,46 @@ class EventConsumerTest :
 
             eventually(15.seconds) { seen shouldContainExactly listOf("u1" to 0L, "u1" to 1L) }
             consumer.stop()
+        }
+
+        test("a failed consumer is replaced, readiness is down meanwhile, and nothing is lost") {
+            val topic = KafkaTestCluster.topic("user.restart")
+            val handler = RecordingHandler(topic)
+            val database = messagingDatabase()
+            val groupId = "restart-${System.nanoTime()}"
+            var created = 0
+            val consumer =
+                EventConsumer(
+                    config =
+                        EventConsumerConfig(
+                            groupId = groupId,
+                            pollTimeout = 200.milliseconds,
+                            restartBackoff = 300.milliseconds,
+                        ),
+                    handlers = setOf(handler),
+                    db = database,
+                    consumerFactory = {
+                        created++
+                        // The first one fails like a consumer whose partitions were taken away.
+                        if (created == 1) {
+                            MockConsumer<String, ByteArray>(AutoOffsetResetStrategy.EARLIEST.name()).apply {
+                                setPollException(CommitFailedException())
+                            }
+                        } else {
+                            KafkaClients.consumer(testKafka, groupId)
+                        }
+                    },
+                    deadLetters = KafkaClients.producer(testKafka, "$groupId-dlq"),
+                )
+            send(topic, "u1", EventJson.encodeToString(CloudEvent.serializer(), event("e-restart", "u1")))
+
+            consumer.onReady()
+
+            eventually(5.seconds) { consumer.check().healthy shouldBe false }
+            eventually(20.seconds) { handler.handled shouldContainExactly listOf("u1") }
+            eventually(5.seconds) { consumer.check() shouldBe HealthStatus.UP }
+            created shouldBe 2
+            consumer.stop()
+            database.stop()
         }
     })
