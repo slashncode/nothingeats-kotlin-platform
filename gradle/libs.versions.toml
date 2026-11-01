@@ -25,6 +25,7 @@ posthog-server = "2.22.0"
 bouncycastle = "1.86"
 java-jwt = "4.6.0"
 angus-mail = "2.0.5"
+webpush = "1.3.0"
 slf4j = "2.0.17"
 logback = "1.6.6"
 logstash-encoder = "9.0"
@@ -117,6 +118,9 @@ java-jwt = { module = "com.auth0:java-jwt", version.ref = "java-jwt" }
 
 # Mail
 angus-mail = { module = "org.eclipse.angus:angus-mail", version.ref = "angus-mail" }
+
+# Web push (RFC 8291 encryption, VAPID)
+webpush = { module = "com.interaso:webpush", version.ref = "webpush" }
 
 # Product analytics
 posthog-server = { module = "com.posthog:posthog-server", version.ref = "posthog-server" }
