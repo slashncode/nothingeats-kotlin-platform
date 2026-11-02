@@ -31,7 +31,9 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import io.ktor.util.cio.ChannelWriteException
 import kotlinx.serialization.Serializable
+import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
 
 @Serializable
@@ -61,6 +63,7 @@ private fun Route.sampleEndpoints() {
     }
     get("/limited") { throw AppError.RateLimited(retryAfter = 30.seconds) }
     get("/boom") { error("database password is hunter2") }
+    get("/gone") { throw ChannelWriteException("Cannot write to channel", IOException("Broken pipe")) }
     post("/orders") { call.receive<Order>() }
 }
 
@@ -69,10 +72,11 @@ private suspend fun HttpResponse.problem(): Problem = PlatformJson.decodeFromStr
 private fun platformTest(
     readiness: Readiness = Readiness(),
     checks: Set<HealthCheck> = emptySet(),
+    reporter: ExceptionReporter? = null,
     block: suspend ApplicationTestBuilder.() -> Unit,
 ) = testApplication {
     application {
-        installPlatform(readiness, HealthChecks(checks))
+        installPlatform(readiness, HealthChecks(checks), exceptionReporter = reporter)
         sampleRoutes()
     }
     block()
@@ -126,6 +130,17 @@ class PlatformTest :
                 response.status shouldBe HttpStatusCode.InternalServerError
                 response.bodyAsText() shouldNotContain "hunter2"
                 response.problem().code shouldBe "INTERNAL_ERROR"
+            }
+        }
+
+        test("unexpected errors are reported; a client that went away is not") {
+            val reported = mutableListOf<Throwable>()
+            val reporter = ExceptionReporter { _, error -> reported += error }
+            platformTest(reporter = reporter) {
+                client.get("/boom")
+                client.get("/gone")
+
+                reported.map { it.message } shouldBe listOf("database password is hunter2")
             }
         }
 

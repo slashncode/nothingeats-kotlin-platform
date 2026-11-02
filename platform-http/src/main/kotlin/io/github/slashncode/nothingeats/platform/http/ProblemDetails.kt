@@ -13,6 +13,7 @@ import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.path
 import io.ktor.server.response.header
 import io.ktor.server.response.respondText
+import io.ktor.util.cio.ChannelWriteException
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
 import kotlin.coroutines.cancellation.CancellationException
@@ -63,6 +64,11 @@ internal fun Application.installProblemDetails(reporter: ExceptionReporter? = nu
         }
         exception<BadRequestException> { call, _ ->
             call.respondProblem(HttpStatusCode.BadRequest, "BAD_REQUEST", "The request could not be read")
+        }
+        // The client went away mid-response (a closed tab, a reload, the end of a live stream):
+        // nobody is left to answer, and it is not an error worth an alert.
+        exception<ChannelWriteException> { call, _ ->
+            log.debug("Client went away during {} {}", call.request.local.method.value, call.request.path())
         }
         exception<Throwable> { call, error ->
             log.error("Unhandled error on {} {}", call.request.local.method.value, call.request.path(), error)
