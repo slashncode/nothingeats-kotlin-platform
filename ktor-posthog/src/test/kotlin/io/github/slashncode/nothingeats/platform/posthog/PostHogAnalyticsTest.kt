@@ -95,6 +95,35 @@ class PostHogAnalyticsTest :
             analytics.stop()
         }
 
+        test("with the flags key, flags are evaluated locally and the exposure is still recorded") {
+            FakePostHog().use { posthog ->
+                posthog.flagDefinitions =
+                    """
+                    {"flags":[{"id":1,"key":"spin-wheel-odds","active":true,"deleted":false,"ensure_experience_continuity":false,
+                      "filters":{"groups":[{"properties":[],"rollout_percentage":100}],
+                        "multivariate":{"variants":[{"key":"control","rollout_percentage":0},{"key":"generous","rollout_percentage":100}]},
+                        "payloads":{"generous":"{\"weights\":[1,2]}"}}}],
+                     "group_type_mapping":{},"cohorts":{}}
+                    """.trimIndent()
+                val analytics =
+                    PostHogAnalytics(
+                        PostHogSettings(projectToken = "phc_test", host = posthog.url, flagsSecretKey = Secret("phs_test")),
+                    )
+
+                eventually(10.seconds) { analytics.featureFlag("spin-wheel-odds", "user-1") shouldBe "generous" }
+                analytics.featureFlagPayload("spin-wheel-odds", "user-1") shouldBe """{"weights":[1,2]}"""
+                analytics.stop()
+
+                posthog.apiCalls().map { it.path.substringBefore('?') to it.authorization }.distinct() shouldBe
+                    listOf("/api/feature_flag/local_evaluation/" to "Bearer phs_test")
+                eventually(10.seconds) {
+                    val called = posthog.events().first { it.string("event") == "\$feature_flag_called" }
+                    called.property("\$feature_flag_response") shouldBe "generous"
+                    called.property("locally_evaluated") shouldBe "true"
+                }
+            }
+        }
+
         test("erasing a person deletes person, events and recordings through the private API") {
             FakePostHog().use { posthog ->
                 val analytics = PostHogAnalytics(PostHogSettings(personalApiKey = Secret("phx_test"), apiHost = posthog.url))

@@ -1,5 +1,6 @@
 package io.github.slashncode.nothingeats.platform.posthog
 
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -7,6 +8,7 @@ import io.ktor.server.request.header
 import io.ktor.server.request.receiveChannel
 import io.ktor.server.request.uri
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.utils.io.toByteArray
@@ -35,11 +37,18 @@ class FakePostHog : Closeable {
     /** Status for private API calls, e.g. 500 to test retries. */
     @Volatile var apiStatus = HttpStatusCode.Accepted
 
+    /** What `/api/feature_flag/local_evaluation/` answers: the flag definitions for local evaluation. */
+    @Volatile var flagDefinitions = """{"flags":[],"group_type_mapping":{},"cohorts":{}}"""
+
     val url = "http://localhost:$port"
 
     private val server =
         embeddedServer(Netty, port = port) {
             routing {
+                get("/api/feature_flag/local_evaluation/") {
+                    calls += Call(call.request.uri, call.request.header("Authorization"), JsonObject(emptyMap()))
+                    call.respondText(flagDefinitions, ContentType.Application.Json)
+                }
                 post("{...}") {
                     val raw = call.receiveChannel().toByteArray()
                     val body =

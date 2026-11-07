@@ -22,10 +22,15 @@ data class PostHogSettings(
     val projectToken: String? = null,
     val host: String = "https://eu.i.posthog.com",
     /**
-     * Personal API key (scopes `feature_flag:read`, `person:write`); when set, feature flags are
-     * evaluated locally instead of per request, and persons can be erased.
+     * Personal API key (scopes `feature_flag:read`, `person:write`); when set, persons can be erased,
+     * and feature flags are evaluated locally unless [flagsSecretKey] is set.
      */
     val personalApiKey: Secret? = null,
+    /**
+     * The project's Feature Flags Secure API Key; when set, feature flags are evaluated locally
+     * instead of per request. It can read flag definitions and nothing else.
+     */
+    val flagsSecretKey: Secret? = null,
     /** The private API (app host, not the ingestion host), for erasing persons. */
     val apiHost: String = "https://eu.posthog.com",
     /** `@current` is the project the personal API key belongs to. */
@@ -48,12 +53,13 @@ class PostHogAnalytics(
 
     private val client: PostHogInterface? =
         settings.projectToken?.takeIf { it.isNotBlank() }?.let { token ->
+            val flagsKey = settings.flagsSecretKey ?: settings.personalApiKey
             PostHog.with(
                 PostHogConfig(
                     projectToken = token,
                     host = settings.host,
-                    personalApiKey = settings.personalApiKey?.value,
-                    localEvaluation = settings.personalApiKey != null,
+                    personalApiKey = flagsKey?.value,
+                    localEvaluation = flagsKey != null,
                 ),
             )
         }
