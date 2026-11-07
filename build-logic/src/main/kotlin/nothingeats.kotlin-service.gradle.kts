@@ -36,15 +36,21 @@ jib {
     container {
         jvmFlags =
             listOf(
-                // Heap and off-heap must fit the container limit together: metaspace, code cache,
-                // threads and Netty's direct buffers (Ktor, Lettuce) take ~150 MiB beside the heap.
-                // At 75% a burst of Argon2 hashes got identity OOM-killed at 512 MiB.
-                "-XX:MaxRAMPercentage=60",
+                // Heap and everything beside it must fit the container limit together. Under load
+                // (k6, 3,000 requests a second) a service's JVM uses about 210 MiB beside the heap:
+                // metaspace ~60, code cache ~50, compiler arenas up to 40, symbols, thread stacks,
+                // malloc. At 60 % of 512 MiB that was just over the limit and the kernel killed it;
+                // at 50 % it peaked at 464 MiB. (At 75 % a burst of Argon2 hashes got identity
+                // OOM-killed at 512 MiB, back in phase 1.)
+                "-XX:MaxRAMPercentage=50",
                 "-XX:MaxDirectMemorySize=64m",
                 "-XX:+ExitOnOutOfMemoryError",
                 // Netty loads its native transport; JDK 25 warns (and will later refuse) without this.
                 "--enable-native-access=ALL-UNNAMED",
             )
+        // glibc gives every thread that mallocs its own arena (up to 8 per core: 112 on a
+        // 14-core host), memory the JVM's native memory tracking never sees; two are plenty.
+        environment = mapOf("MALLOC_ARENA_MAX" to "2")
         ports = listOf("8080")
         creationTime = "USE_CURRENT_TIMESTAMP"
     }
