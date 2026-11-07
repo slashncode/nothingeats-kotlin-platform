@@ -13,7 +13,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.apache.kafka.clients.admin.Admin
-import org.apache.kafka.clients.admin.AdminClientConfig
 import org.apache.kafka.clients.admin.OffsetSpec
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -46,7 +45,7 @@ class ConsumerLag(
     private val clock: Clock = Clock.systemUTC(),
 ) {
     fun of(groupId: String): List<PartitionLag> =
-        Admin.create(mapOf(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG to config.bootstrapServers)).use { admin ->
+        Admin.create(config.connection()).use { admin ->
             val committed =
                 admin
                     .listConsumerGroupOffsets(groupId)
@@ -90,12 +89,12 @@ class ConsumerLag(
     // No group: it only looks, it never commits.
     private fun reader() =
         KafkaConsumer(
-            mapOf(
-                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG to config.bootstrapServers,
-                ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG to false,
-                ConsumerConfig.MAX_POLL_RECORDS_CONFIG to 1,
-                ConsumerConfig.ISOLATION_LEVEL_CONFIG to "read_committed",
-            ),
+            config.connection() +
+                mapOf(
+                    ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG to false,
+                    ConsumerConfig.MAX_POLL_RECORDS_CONFIG to 1,
+                    ConsumerConfig.ISOLATION_LEVEL_CONFIG to "read_committed",
+                ),
             ByteArrayDeserializer(),
             ByteArrayDeserializer(),
         )
