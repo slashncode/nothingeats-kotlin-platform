@@ -6,6 +6,7 @@ import io.github.slashncode.nothingeats.platform.core.lifecycle.LifecycleOrder
 import io.github.slashncode.nothingeats.platform.core.lifecycle.Readiness
 import io.github.slashncode.nothingeats.platform.http.auth.JwtAuth
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -31,6 +32,12 @@ fun interface HttpRoutes {
 /** Extra application setup (plugins) contributed by other modules, e.g. ktor-posthog. */
 fun interface HttpExtension {
     fun Application.install()
+
+    /**
+     * Fields for the logging MDC of every call, read from the call: they appear on every log line
+     * the call writes, its request line included. A null value leaves the field out.
+     */
+    fun callMdc(): Map<String, (ApplicationCall) -> String?> = emptyMap()
 }
 
 /** The Ktor server as a lifecycle component: starts early so health probes answer during startup. */
@@ -51,7 +58,16 @@ class HttpServer(
     override suspend fun start() {
         server =
             embeddedServer(Netty, host = config.host, port = config.port) {
-                installPlatform(readiness, healthChecks, auth, exceptionReporter)
+                installPlatform(
+                    readiness,
+                    healthChecks,
+                    auth,
+                    exceptionReporter,
+                    extensions.fold(emptyMap()) { mdc, it ->
+                        mdc +
+                            it.callMdc()
+                    },
+                )
                 extensions.forEach { with(it) { install() } }
                 routing {
                     routes.forEach { with(it) { register() } }

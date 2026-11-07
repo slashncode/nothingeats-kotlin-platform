@@ -25,13 +25,24 @@ fun ApplicationCall.analyticsContext(): AnalyticsContext =
 
 private fun String?.sanitized(): String? = this?.trim()?.take(MAX_HEADER_LENGTH)?.takeIf { it.isNotEmpty() }
 
-/** Makes the browser's PostHog ids available to everything the request runs, via [AnalyticsContext]. */
+/**
+ * Makes the browser's PostHog ids available to everything the request runs, via [AnalyticsContext],
+ * and puts them on the request's log lines under the names PostHog Logs links by: `posthogDistinctId`
+ * to the person, `sessionId` to the session replay. The browser sends them only after the visitor
+ * agreed to analytics, so without consent the log lines carry neither.
+ */
 class PostHogHttpExtension : HttpExtension {
     override fun Application.install() {
         intercept(ApplicationCallPipeline.Plugins) {
             withContext(call.analyticsContext()) { proceed() }
         }
     }
+
+    override fun callMdc(): Map<String, (ApplicationCall) -> String?> =
+        mapOf(
+            "posthogDistinctId" to { call -> call.analyticsContext().distinctId },
+            "sessionId" to { call -> call.analyticsContext().sessionId },
+        )
 }
 
 /** Sends unexpected exceptions to PostHog error tracking, attributed to the caller's person and session. */

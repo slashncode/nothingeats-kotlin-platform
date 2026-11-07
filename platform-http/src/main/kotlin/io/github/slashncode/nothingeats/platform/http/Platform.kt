@@ -8,6 +8,7 @@ import io.github.slashncode.nothingeats.platform.http.auth.verifyRouteGuards
 import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.ApplicationStarted
 import io.ktor.server.application.install
 import io.ktor.server.application.pluginOrNull
@@ -33,7 +34,7 @@ private const val MAX_REQUEST_ID_LENGTH = 128
 
 /**
  * Installs what every service needs: JSON, request ids (`X-Request-Id`, echoed and put in the
- * logging MDC as `request_id`), access logs without probe noise, RFC 9457 errors, the
+ * logging MDC as `request_id`, next to the [callMdc] fields of extensions), access logs without probe noise, RFC 9457 errors, the
  * `/health/live` and `/health/ready` probes, and JWT authentication when [auth] is given.
  * Once the application has started, every route must be guarded (see `public`/`authenticated`).
  */
@@ -42,6 +43,7 @@ fun Application.installPlatform(
     healthChecks: HealthChecks,
     auth: JwtAuth? = null,
     exceptionReporter: ExceptionReporter? = null,
+    callMdc: Map<String, (ApplicationCall) -> String?> = emptyMap(),
 ) {
     install(ContentNegotiation) {
         json(PlatformJson)
@@ -56,6 +58,7 @@ fun Application.installPlatform(
         // Plain text: ANSI colour codes would end up inside the JSON log lines.
         disableDefaultColors()
         callIdMdc("request_id")
+        callMdc.forEach { (field, value) -> mdc(field) { value(it) } }
         filter { !it.request.path().startsWith("/health") }
     }
     installProblemDetails(exceptionReporter)

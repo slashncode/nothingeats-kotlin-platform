@@ -11,4 +11,5 @@ dependencies {
     testImplementation(project(":platform-testing"))
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.ktor.server.netty)
+    testImplementation(libs.logback.classic)
 }
