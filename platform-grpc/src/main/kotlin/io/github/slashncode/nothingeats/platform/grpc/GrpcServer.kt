@@ -35,7 +35,14 @@ class GrpcServer(
     private val services: Set<BindableService>,
     private val auth: AuthInterceptor,
     private val errors: ErrorInterceptor = ErrorInterceptor(),
-    private val builder: () -> ServerBuilder<*> = { NettyServerBuilder.forPort(config.port) },
+    // Clients ping every GrpcChannel.KEEPALIVE_TIME, also when idle; gRPC's default would answer
+    // pings more often than every five minutes with GOAWAY ("too many pings").
+    private val builder: () -> ServerBuilder<*> = {
+        NettyServerBuilder
+            .forPort(config.port)
+            .permitKeepAliveTime(GrpcChannel.KEEPALIVE_TIME.inWholeSeconds / 2, TimeUnit.SECONDS)
+            .permitKeepAliveWithoutCalls(true)
+    },
 ) : LifecycleComponent {
     override val name = "grpc-server"
     override val order = LifecycleOrder.TRAFFIC

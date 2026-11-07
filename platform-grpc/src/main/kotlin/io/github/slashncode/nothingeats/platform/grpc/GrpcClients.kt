@@ -37,8 +37,16 @@ data class GrpcClientConfig(
 class GrpcChannel(
     val config: GrpcClientConfig,
     // round_robin spreads calls over every pod the DNS name resolves to (a headless service).
+    // Keepalive pings, also while no call is running, find a connection whose pod died without
+    // saying goodbye (killed, its node gone): otherwise the next call waits out its deadline on it.
     builder: () -> ManagedChannelBuilder<*> = {
-        NettyChannelBuilder.forTarget(config.target).usePlaintext().defaultLoadBalancingPolicy("round_robin")
+        NettyChannelBuilder
+            .forTarget(config.target)
+            .usePlaintext()
+            .defaultLoadBalancingPolicy("round_robin")
+            .keepAliveTime(KEEPALIVE_TIME.inWholeSeconds, TimeUnit.SECONDS)
+            .keepAliveTimeout(KEEPALIVE_TIMEOUT.inWholeSeconds, TimeUnit.SECONDS)
+            .keepAliveWithoutCalls(true)
     },
 ) : LifecycleComponent {
     override val name = "grpc-channel:${config.target}"
@@ -72,13 +80,16 @@ class GrpcChannel(
         }
     }
 
-    private companion object {
-        val SHUTDOWN = 5.seconds
-        val INITIAL_BACKOFF = 100.milliseconds
-        val MAX_BACKOFF = 1.seconds
+    companion object {
+        /** A ping after this much quiet on a connection; [GrpcServer] permits it. */
+        val KEEPALIVE_TIME = 20.seconds
+        val KEEPALIVE_TIMEOUT = 5.seconds
+        private val SHUTDOWN = 5.seconds
+        private val INITIAL_BACKOFF = 100.milliseconds
+        private val MAX_BACKOFF = 1.seconds
 
         // gRPC service config: applies to every method of every service on this channel.
-        fun retryPolicy(maxAttempts: Int): Map<String, Any> =
+        private fun retryPolicy(maxAttempts: Int): Map<String, Any> =
             mapOf(
                 "methodConfig" to
                     listOf(
