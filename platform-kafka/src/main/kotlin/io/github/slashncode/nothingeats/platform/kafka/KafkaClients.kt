@@ -8,6 +8,8 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer
 import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.StringSerializer
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 data class KafkaConfig(
     /** Defaults to the local k3d cluster as seen from the host. */
@@ -15,10 +17,15 @@ data class KafkaConfig(
 )
 
 object KafkaClients {
-    /** Idempotent producer with `acks=all`: no duplicates from retries, ordering kept per partition. */
+    /**
+     * Idempotent producer with `acks=all`: no duplicates from retries, ordering kept per partition.
+     * [maxBlock] bounds how long `send` itself may block while the broker is unknown (Kafka's
+     * default is a minute); fire-and-forget senders keep it short so an outage cannot stall them.
+     */
     fun producer(
         config: KafkaConfig,
         clientId: String,
+        maxBlock: Duration = 60.seconds,
     ): KafkaProducer<String, ByteArray> =
         KafkaProducer(
             mapOf(
@@ -29,6 +36,7 @@ object KafkaClients {
                 ProducerConfig.LINGER_MS_CONFIG to 5,
                 ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG to 15_000,
                 ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG to 30_000,
+                ProducerConfig.MAX_BLOCK_MS_CONFIG to maxBlock.inWholeMilliseconds,
             ),
             StringSerializer(),
             ByteArraySerializer(),
