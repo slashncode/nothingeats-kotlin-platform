@@ -37,6 +37,8 @@ data class PostHogSettings(
     val apiHost: String = "https://eu.posthog.com",
     /** `@current` is the project the personal API key belongs to. */
     val projectId: String = "@current",
+    /** Flags the browser may see, for a service that serves them ([clientFlags]), e.g. `POSTHOG__CLIENT_FLAGS=a,b`. */
+    val clientFlags: List<String> = emptyList(),
 )
 
 /**
