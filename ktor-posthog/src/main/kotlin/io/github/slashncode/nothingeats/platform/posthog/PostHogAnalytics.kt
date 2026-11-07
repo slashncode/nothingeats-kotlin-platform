@@ -2,10 +2,12 @@ package io.github.slashncode.nothingeats.platform.posthog
 
 import com.posthog.server.PostHog
 import com.posthog.server.PostHogConfig
+import com.posthog.server.PostHogFeatureFlagResultOptions
 import com.posthog.server.PostHogInterface
 import com.sksamuel.hoplite.Secret
 import io.github.slashncode.nothingeats.platform.core.analytics.AnalyticsContext
 import io.github.slashncode.nothingeats.platform.core.analytics.ErasureResult
+import io.github.slashncode.nothingeats.platform.core.analytics.FlagValue
 import io.github.slashncode.nothingeats.platform.core.analytics.ProductAnalytics
 import io.github.slashncode.nothingeats.platform.core.lifecycle.LifecycleComponent
 import io.github.slashncode.nothingeats.platform.core.lifecycle.LifecycleOrder
@@ -101,6 +103,24 @@ class PostHogAnalytics(
         val flags = evaluate(flag, distinctId) ?: return null
         if (flags.getFlag(flag) == null) return null
         return flags.getFlagPayload(flag)
+    }
+
+    // The SDK's snapshot (evaluateFlags) records an exposure on every read of a value; only the
+    // deprecated single-flag call can leave it out, which a bootstrap for the browser must.
+    @Suppress("DEPRECATION")
+    override suspend fun flagsForClient(
+        flags: Collection<String>,
+        distinctId: String,
+    ): Map<String, FlagValue> {
+        val client = client ?: return emptyMap()
+        val options = PostHogFeatureFlagResultOptions.Builder().sendFeatureFlagEvent(false).build()
+        return withContext(Dispatchers.IO) {
+            flags
+                .mapNotNull { flag ->
+                    val result = client.getFeatureFlagResult(distinctId, flag, options)?.takeIf { it.enabled }
+                    result?.let { flag to FlagValue(it.variant ?: true, it.payload?.toString()) }
+                }.toMap()
+        }
     }
 
     // Locally when a personal API key is configured, otherwise one /flags request per call.

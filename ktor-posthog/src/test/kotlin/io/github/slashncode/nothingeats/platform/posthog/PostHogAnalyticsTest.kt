@@ -2,6 +2,7 @@ package io.github.slashncode.nothingeats.platform.posthog
 
 import com.sksamuel.hoplite.Secret
 import io.github.slashncode.nothingeats.platform.core.analytics.ErasureResult
+import io.github.slashncode.nothingeats.platform.core.analytics.FlagValue
 import io.github.slashncode.nothingeats.platform.core.lifecycle.HealthChecks
 import io.github.slashncode.nothingeats.platform.core.lifecycle.Readiness
 import io.github.slashncode.nothingeats.platform.http.auth.public
@@ -121,6 +122,40 @@ class PostHogAnalyticsTest :
                     called.property("\$feature_flag_response") shouldBe "generous"
                     called.property("locally_evaluated") shouldBe "true"
                 }
+            }
+        }
+
+        test("flags for the browser come with their payloads and record no exposure") {
+            FakePostHog().use { posthog ->
+                posthog.flagDefinitions =
+                    """
+                    {"flags":[
+                      {"id":1,"key":"checkout-copy","active":true,"deleted":false,"ensure_experience_continuity":false,
+                       "filters":{"groups":[{"properties":[],"rollout_percentage":100}],
+                         "multivariate":{"variants":[{"key":"control","rollout_percentage":0},{"key":"calm","rollout_percentage":100}]},
+                         "payloads":{"calm":"{\"button\":\"Nichts bestellen\"}"}}},
+                      {"id":2,"key":"coach-placement","active":false,"deleted":false,"ensure_experience_continuity":false,
+                       "filters":{"groups":[{"properties":[],"rollout_percentage":100}]}},
+                      {"id":3,"key":"new-badges","active":true,"deleted":false,"ensure_experience_continuity":false,
+                       "filters":{"groups":[{"properties":[],"rollout_percentage":100}]}}],
+                     "group_type_mapping":{},"cohorts":{}}
+                    """.trimIndent()
+                val analytics =
+                    PostHogAnalytics(
+                        PostHogSettings(projectToken = "phc_test", host = posthog.url, flagsSecretKey = Secret("phs_test")),
+                    )
+
+                eventually(10.seconds) {
+                    analytics.flagsForClient(listOf("checkout-copy", "coach-placement", "new-badges", "unknown"), "user-1") shouldBe
+                        mapOf(
+                            "checkout-copy" to FlagValue("calm", """{"button":"Nichts bestellen"}"""),
+                            "new-badges" to FlagValue(true),
+                        )
+                }
+                analytics.stop()
+
+                // Before the definitions have loaded the SDK asks /flags remotely; no event either way.
+                posthog.events().mapNotNull { it.string("event") } shouldBe emptyList()
             }
         }
 
