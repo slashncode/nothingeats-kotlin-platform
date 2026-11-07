@@ -41,7 +41,7 @@ class ConsumerLagTest :
         test("a group behind waits as long as its oldest unhandled event") {
             val (topic, group) = groupBehind()
 
-            val lag = ConsumerLag(testKafka, clockAt(sent.plusSeconds(20 * 60))).of(group)
+            val lag = ConsumerLag(testKafka, clockAt(sent.plusSeconds(20 * 60))).use { it.of(group) }
 
             // The oldest unhandled event is the second one, sent a minute after the first.
             lag shouldContainExactly listOf(PartitionLag(topic, 0, events = 2, waited = 19.minutes))
@@ -55,8 +55,11 @@ class ConsumerLagTest :
                 consumer.commitSync(mapOf(partition to OffsetAndMetadata(3)))
             }
 
-            ConsumerLag(testKafka).of(group).shouldBeEmpty()
-            ConsumerLag(testKafka).of("never-seen-${System.nanoTime()}").shouldBeEmpty()
+            // One instance for both looks, like the watch keeps it.
+            ConsumerLag(testKafka).use { lag ->
+                lag.of(group).shouldBeEmpty()
+                lag.of("never-seen-${System.nanoTime()}").shouldBeEmpty()
+            }
         }
 
         test("the watch reports a group whose events waited too long, and stays quiet otherwise") {

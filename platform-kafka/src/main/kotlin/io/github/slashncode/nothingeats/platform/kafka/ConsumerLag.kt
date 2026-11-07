@@ -39,40 +39,54 @@ data class PartitionLag(
  * holds events after the committed offset, the age of the oldest of them. Reads only what Kafka
  * keeps anyway (committed offsets, end offsets, record timestamps), so it needs no state.
  * Partitions the group never committed on (a new service still starting) are left out.
+ *
+ * Its admin client and reader are opened on the first look and kept until [close]: Kafka's
+ * clients log their whole configuration whenever one starts.
  */
 class ConsumerLag(
     private val config: KafkaConfig,
     private val clock: Clock = Clock.systemUTC(),
-) {
-    fun of(groupId: String): List<PartitionLag> =
-        Admin.create(config.connection()).use { admin ->
-            val committed =
-                admin
-                    .listConsumerGroupOffsets(groupId)
-                    .partitionsToOffsetAndMetadata()
-                    .get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .filterValues { it != null }
-                    .mapValues { it.value.offset() }
-            if (committed.isEmpty()) return emptyList()
-            val ends =
-                admin
-                    .listOffsets(committed.keys.associateWith { OffsetSpec.latest() })
-                    .all()
-                    .get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .mapValues { it.value.offset() }
-            val behind = committed.filter { (partition, offset) -> (ends[partition] ?: offset) > offset }
-            if (behind.isEmpty()) return emptyList()
-            reader().use { reader ->
-                behind.map { (partition, offset) ->
-                    PartitionLag(
-                        partition.topic(),
-                        partition.partition(),
-                        ends.getValue(partition) - offset,
-                        oldestWait(reader, partition, offset),
-                    )
-                }
-            }
+) : AutoCloseable {
+    private var admin: Admin? = null
+    private var reader: KafkaConsumer<ByteArray, ByteArray>? = null
+
+    @Synchronized
+    fun of(groupId: String): List<PartitionLag> {
+        val admin = admin ?: Admin.create(config.connection()).also { admin = it }
+        val committed =
+            admin
+                .listConsumerGroupOffsets(groupId)
+                .partitionsToOffsetAndMetadata()
+                .get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .filterValues { it != null }
+                .mapValues { it.value.offset() }
+        if (committed.isEmpty()) return emptyList()
+        val ends =
+            admin
+                .listOffsets(committed.keys.associateWith { OffsetSpec.latest() })
+                .all()
+                .get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .mapValues { it.value.offset() }
+        val behind = committed.filter { (partition, offset) -> (ends[partition] ?: offset) > offset }
+        if (behind.isEmpty()) return emptyList()
+        val reader = reader ?: reader().also { reader = it }
+        return behind.map { (partition, offset) ->
+            PartitionLag(
+                partition.topic(),
+                partition.partition(),
+                ends.getValue(partition) - offset,
+                oldestWait(reader, partition, offset),
+            )
         }
+    }
+
+    @Synchronized
+    override fun close() {
+        reader?.close()
+        admin?.close()
+        reader = null
+        admin = null
+    }
 
     /** The age of the first record at or after [offset]; zero when there is none (transaction markers only). */
     private fun oldestWait(
@@ -174,5 +188,6 @@ class ConsumerLagWatch(
 
     override suspend fun stop() {
         job?.cancelAndJoin()
+        withContext(Dispatchers.IO) { lag.close() }
     }
 }
