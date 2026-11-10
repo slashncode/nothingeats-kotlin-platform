@@ -31,7 +31,7 @@ class PostHogLogFieldsTest :
             try {
                 testApplication {
                     application {
-                        val posthog = PostHogHttpExtension()
+                        val posthog = PostHogHttpExtension(PostHogAnalytics(PostHogSettings()))
                         installPlatform(Readiness(), HealthChecks(emptySet()), callMdc = posthog.callMdc())
                         with(posthog) { install() }
                         routing {

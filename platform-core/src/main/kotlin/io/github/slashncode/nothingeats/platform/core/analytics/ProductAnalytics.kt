@@ -57,16 +57,6 @@ interface ProductAnalytics {
         distinctId: String,
     ): String?
 
-    /**
-     * The values of [flags] that are on for [distinctId], without recording an exposure: for a client
-     * (the web app) that renders with them before its own SDK has loaded and records the exposure
-     * itself when it shows a variant. Flags that are off or unknown are left out.
-     */
-    suspend fun flagsForClient(
-        flags: Collection<String>,
-        distinctId: String,
-    ): Map<String, FlagValue> = emptyMap()
-
     suspend fun captureException(
         error: Throwable,
         properties: Map<String, Any?> = emptyMap(),
@@ -82,12 +72,6 @@ interface ProductAnalytics {
 }
 
 enum class ErasureResult { ERASED, NOT_CONFIGURED }
-
-/** A flag that is on: [value] is `true` or the variant's key, [payload] the variant's JSON payload. */
-data class FlagValue(
-    val value: Any,
-    val payload: String? = null,
-)
 
 /** For services or environments without analytics. */
 object NoopAnalytics : ProductAnalytics {

@@ -1,16 +1,14 @@
 package io.github.slashncode.nothingeats.platform.posthog
 
-import com.posthog.server.PostHog
-import com.posthog.server.PostHogConfig
-import com.posthog.server.PostHogFeatureFlagResultOptions
-import com.posthog.server.PostHogInterface
 import com.sksamuel.hoplite.Secret
 import io.github.slashncode.nothingeats.platform.core.analytics.AnalyticsContext
 import io.github.slashncode.nothingeats.platform.core.analytics.ErasureResult
-import io.github.slashncode.nothingeats.platform.core.analytics.FlagValue
 import io.github.slashncode.nothingeats.platform.core.analytics.ProductAnalytics
 import io.github.slashncode.nothingeats.platform.core.lifecycle.LifecycleComponent
 import io.github.slashncode.nothingeats.platform.core.lifecycle.LifecycleOrder
+import io.github.slashncode.posthog.ktor.POSTHOG_EU_HOST
+import io.github.slashncode.posthog.ktor.PostHogClient
+import io.github.slashncode.posthog.ktor.PostHogFlags
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URI
@@ -22,7 +20,7 @@ import java.time.Duration
 data class PostHogSettings(
     /** Project API key (public). Null switches analytics off, e.g. for local runs without a project. */
     val projectToken: String? = null,
-    val host: String = "https://eu.i.posthog.com",
+    val host: String = POSTHOG_EU_HOST,
     /**
      * Personal API key (scopes `feature_flag:read`, `person:write`); when set, persons can be erased,
      * and feature flags are evaluated locally unless [flagsSecretKey] is set.
@@ -37,16 +35,18 @@ data class PostHogSettings(
     val apiHost: String = "https://eu.posthog.com",
     /** `@current` is the project the personal API key belongs to. */
     val projectId: String = "@current",
-    /** Flags the browser may see, for a service that serves them ([clientFlags]), e.g. `POSTHOG__CLIENT_FLAGS=a,b`. */
+    /** Flags the browser may see, for a service that serves them (posthog-ktor's `posthogFlags`), e.g. `POSTHOG__CLIENT_FLAGS=a,b`. */
     val clientFlags: List<String> = emptyList(),
 )
 
 /**
- * [ProductAnalytics] backed by the official PostHog server SDK.
+ * [ProductAnalytics] on posthog-ktor's [client], which [PostHogHttpExtension] shares with the HTTP
+ * server: events captured during a call carry its request properties and session, and background
+ * work (consumers, cron tasks) captures through the same client without a server.
  *
  * Events default to the browser's distinct id and carry its `$session_id` (both from
- * [AnalyticsContext]), so server-side events show up in the same person and session replay as the
- * client-side ones. Flushed and closed last on shutdown.
+ * [AnalyticsContext]). The browser sends them only after the visitor agreed to analytics, so an
+ * event without a distinct id is dropped. Flushed and closed last on shutdown.
  */
 class PostHogAnalytics(
     private val settings: PostHogSettings,
@@ -55,21 +55,18 @@ class PostHogAnalytics(
     override val name = "posthog"
     override val order = LifecycleOrder.INFRASTRUCTURE
 
-    private val client: PostHogInterface? =
-        settings.projectToken?.takeIf { it.isNotBlank() }?.let { token ->
-            val flagsKey = settings.flagsSecretKey ?: settings.personalApiKey
-            PostHog.with(
-                PostHogConfig(
-                    projectToken = token,
-                    host = settings.host,
-                    personalApiKey = flagsKey?.value,
-                    localEvaluation = flagsKey != null,
-                ),
-            )
+    /** The posthog-ktor client; off (every call a no-op) without a project token. */
+    val client: PostHogClient =
+        PostHogClient {
+            projectToken = settings.projectToken?.takeIf { it.isNotBlank() }
+            host = settings.host
+            // Locally, with the flags key or else the personal API key; otherwise one request per evaluation.
+            secretKey = (settings.flagsSecretKey ?: settings.personalApiKey)?.value
+            captureWithoutDistinctId = false
         }
 
     override suspend fun stop() {
-        withContext(Dispatchers.IO) { client?.close() }
+        withContext(Dispatchers.IO) { client.close() }
     }
 
     override suspend fun capture(
@@ -77,10 +74,9 @@ class PostHogAnalytics(
         properties: Map<String, Any?>,
         distinctId: String?,
     ) {
-        val client = client ?: return
         val context = AnalyticsContext.current()
         val id = distinctId ?: context?.distinctId ?: return
-        client.capture(distinctId = id, event = event, properties = enrich(properties, context))
+        client.capture(event, properties.withSession(context), id)
     }
 
     override suspend fun isFeatureEnabled(
@@ -88,57 +84,37 @@ class PostHogAnalytics(
         distinctId: String,
         default: Boolean,
     ): Boolean {
-        val flags = evaluate(flag, distinctId) ?: return default
+        val flags = evaluate(flag, distinctId)
         return if (flag in flags.keys) flags.isEnabled(flag) else default
     }
 
     override suspend fun featureFlag(
         flag: String,
         distinctId: String,
-    ): Any? = evaluate(flag, distinctId)?.getFlag(flag)
+    ): Any? = evaluate(flag, distinctId).getFlag(flag)
 
-    // getFlag records the exposure ($feature_flag_called) that experiments count; the payload alone would not.
+    // Reading the value records the exposure ($feature_flag_called) that experiments count; the payload alone would not.
     override suspend fun featureFlagPayload(
         flag: String,
         distinctId: String,
     ): String? {
-        val flags = evaluate(flag, distinctId) ?: return null
+        val flags = evaluate(flag, distinctId)
         if (flags.getFlag(flag) == null) return null
         return flags.getFlagPayload(flag)
     }
 
-    // The SDK's snapshot (evaluateFlags) records an exposure on every read of a value; only the
-    // deprecated single-flag call can leave it out, which a bootstrap for the browser must.
-    @Suppress("DEPRECATION")
-    override suspend fun flagsForClient(
-        flags: Collection<String>,
-        distinctId: String,
-    ): Map<String, FlagValue> {
-        val client = client ?: return emptyMap()
-        val options = PostHogFeatureFlagResultOptions.Builder().sendFeatureFlagEvent(false).build()
-        return withContext(Dispatchers.IO) {
-            flags
-                .mapNotNull { flag ->
-                    val result = client.getFeatureFlagResult(distinctId, flag, options)?.takeIf { it.enabled }
-                    result?.let { flag to FlagValue(it.variant ?: true, it.payload?.toString()) }
-                }.toMap()
-        }
-    }
-
-    // Locally when a personal API key is configured, otherwise one /flags request per call.
     private suspend fun evaluate(
         flag: String,
         distinctId: String,
-    ) = client?.let { withContext(Dispatchers.IO) { it.evaluateFlags(distinctId = distinctId, flagKeys = listOf(flag)) } }
+    ): PostHogFlags = client.evaluateFlags(distinctId) { flagKeys(listOf(flag)) }
 
     override suspend fun captureException(
         error: Throwable,
         properties: Map<String, Any?>,
         distinctId: String?,
     ) {
-        val client = client ?: return
         val context = AnalyticsContext.current()
-        client.captureException(error, distinctId ?: context?.distinctId, enrich(properties, context))
+        client.captureException(error, properties.withSession(context), distinctId ?: context?.distinctId)
     }
 
     // Person, events and recordings; PostHog deletes events in a weekly batch and answers 202 at once.
@@ -164,14 +140,11 @@ class PostHogAnalytics(
         return """{"distinct_ids":["$escaped"],"delete_events":true,"delete_recordings":true}"""
     }
 
-    private fun enrich(
-        properties: Map<String, Any?>,
-        context: AnalyticsContext?,
-    ): Map<String, Any> =
-        buildMap {
-            properties.forEach { (key, value) -> if (value != null) put(key, value) }
-            context?.sessionId?.let { putIfAbsent(SESSION_ID, it) }
-        }
+    // Inside a call the client adds the call's session itself; work outside a call names it in AnalyticsContext.
+    private fun Map<String, Any?>.withSession(context: AnalyticsContext?): Map<String, Any?> {
+        val sessionId = context?.sessionId ?: return this
+        return if (containsKey(SESSION_ID)) this else this + (SESSION_ID to sessionId)
+    }
 
     private companion object {
         const val SESSION_ID = "\$session_id"

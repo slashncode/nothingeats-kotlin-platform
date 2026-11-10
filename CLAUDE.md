@@ -14,6 +14,7 @@ Shared Kotlin platform for NothingEats services. The cross-repo plan and session
 - `gradle/libs.versions.toml` — the only place for versions, also published as `version-catalog`. `nothingeats-platform` is the version of every module.
 - `build-logic/` — convention plugins (included build). Third-party Gradle plugins on its classpath can't be applied by id from module builds; wrap them in a convention plugin (see `nothingeats.kotlinx-serialization`).
 - `platform-*` — the modules; package root `io.github.slashncode.nothingeats.platform.<module>`.
+- `ktor-posthog` — an adapter (the `ProductAnalytics` port, GDPR erasure) over posthog-ktor, which the settings include from `../posthog-ktor` until it is on Maven Central (CI checks it out there too). Fixes to PostHog behaviour go into posthog-ktor, not here.
 
 ## Rules
 

@@ -46,6 +46,7 @@ dependencies {
         api(libs.snappy.java) { because("kafka-clients brings 1.1.10.7, which has known vulnerabilities") }
         api(libs.lettuce.core)
         api(libs.posthog.server)
+        api(libs.posthog.ktor)
     }
 }
 

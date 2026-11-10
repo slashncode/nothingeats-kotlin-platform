@@ -2,7 +2,6 @@ package io.github.slashncode.nothingeats.platform.testing
 
 import io.github.slashncode.nothingeats.platform.core.analytics.AnalyticsContext
 import io.github.slashncode.nothingeats.platform.core.analytics.ErasureResult
-import io.github.slashncode.nothingeats.platform.core.analytics.FlagValue
 import io.github.slashncode.nothingeats.platform.core.analytics.ProductAnalytics
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -51,15 +50,6 @@ class RecordingAnalytics : ProductAnalytics {
         flag: String,
         distinctId: String,
     ): String? = payloads[flag]
-
-    override suspend fun flagsForClient(
-        flags: Collection<String>,
-        distinctId: String,
-    ): Map<String, FlagValue> =
-        flags
-            .mapNotNull { flag ->
-                this.flags[flag]?.takeIf { it != false }?.let { flag to FlagValue(it, payloads[flag]) }
-            }.toMap()
 
     override suspend fun captureException(
         error: Throwable,

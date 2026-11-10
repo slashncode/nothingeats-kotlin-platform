@@ -19,6 +19,12 @@ dependencyResolutionManagement {
 
 rootProject.name = "nothingeats-kotlin-platform"
 
+// posthog-ktor (ktor-posthog's engine) from its sibling checkout until it is on Maven Central; CI
+// checks it out next to the platform. Services that include the platform get it through here.
+val posthogKtorDir = file("../posthog-ktor").canonicalFile
+check(posthogKtorDir.exists()) { "posthog-ktor must be checked out next to the platform: ${posthogKtorDir.path}" }
+includeBuild(posthogKtorDir)
+
 include(
     "platform-bom",
     "version-catalog",
